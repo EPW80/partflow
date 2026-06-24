@@ -1,0 +1,41 @@
+# Secrets & local overrides
+.env
+.env.*
+!.env.example
+local.md
+.claude/local.md
+
+# External tooling (vendored skills, not part of PartFlow)
+skills-main/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+
+# Airflow
+pipelines/logs/
+airflow.db
+airflow.cfg
+webserver_config.py
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/out/
+web/coverage/
+
+# Data artifacts (synthetic output is regenerable)
+data/output/
+
+# OS / editor
+.DS_Store
+*.swp
