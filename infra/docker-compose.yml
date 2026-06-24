@@ -1,0 +1,134 @@
+# PartFlow local stack — one-command dev environment.
+#   docker compose -f infra/docker-compose.yml up
+# Postgres is the single source of truth and also backs Airflow + Metabase metadata.
+# Ports (see local.md): Metabase 3000 | Airflow 8080 | Grafana 3001 | web 3002 (Phase 7).
+# All data is synthetic.
+
+name: partflow
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.10.4
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    # Warehouse connection for tasks (ingestion lands here; dbt builds here).
+    PARTFLOW_DATABASE_URL: postgresql://partflow:partflow@postgres:5432/partflow
+  volumes:
+    - ../pipelines/dags:/opt/airflow/dags
+    - ../pipelines/ingestion:/opt/airflow/ingestion
+    - ../pipelines/quality:/opt/airflow/quality
+    - airflow-logs:/opt/airflow/logs
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-partflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-partflow}
+      POSTGRES_DB: ${POSTGRES_DB:-partflow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Host port configurable to avoid clashing with a local/other Postgres.
+      # Internal port stays 5432, so other services reach it as `postgres:5432`.
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-partflow} -d ${POSTGRES_DB:-partflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    # One-shot: migrate the metadata DB and create the admin user, then exit.
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username "${_AIRFLOW_WWW_USER_USERNAME:-airflow}" \
+          --password "${_AIRFLOW_WWW_USER_PASSWORD:-airflow}" \
+          --firstname PartFlow --lastname Admin --role Admin \
+          --email admin@partflow.local || true
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:v0.51.14
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase
+      MB_DB_HOST: postgres
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  airflow-logs:
+  grafana-storage:

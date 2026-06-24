@@ -1,0 +1,19 @@
+# SYNTHETIC DATA
+# Grafana datasource: the PartFlow warehouse (read-only ops/time-series monitoring).
+apiVersion: 1
+
+datasources:
+  - name: PartFlow Warehouse
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: partflow
+    user: partflow_ro
+    secureJsonData:
+      password: partflow_ro
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    isDefault: true
+    editable: true
