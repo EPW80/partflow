@@ -26,6 +26,20 @@ A full-lifecycle demo of data-engineering ownership: ingest, transform, model, s
 - Don't blur layers: `pipelines/` lands raw, `transform/` models it, `web/` + BI read marts. Presentation code never computes business logic.
 - For KPI formulas and definitions, see `transform/models/marts/README.md`.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub issues on `EPW80/partflow` (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
 ## Self-improvement
 
 After I correct you, update the _narrowest_ applicable CLAUDE.md so the mistake can't recur. Don't duplicate a rule across files.
