@@ -5,6 +5,10 @@
 local.md
 .claude/local.md
 
+# Agent instruction files — kept locally, excluded from the published repo
+CLAUDE.md
+**/CLAUDE.md
+
 # External tooling (vendored skills, not part of PartFlow)
 skills-main/
 
