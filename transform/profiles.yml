@@ -1,0 +1,16 @@
+# dbt connection profile. Run with: dbt build --profiles-dir .
+# Defaults target the host-mapped Postgres (localhost:5433); override via env vars
+# (PARTFLOW_PG_HOST/PORT etc.) when running inside the Airflow container (postgres:5432).
+partflow:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('PARTFLOW_PG_HOST', 'localhost') }}"
+      port: "{{ env_var('PARTFLOW_PG_PORT', '5433') | int }}"
+      user: "{{ env_var('PARTFLOW_PG_USER', 'partflow') }}"
+      password: "{{ env_var('PARTFLOW_PG_PASSWORD', 'partflow') }}"
+      dbname: "{{ env_var('PARTFLOW_PG_DBNAME', 'partflow') }}"
+      schema: "{{ env_var('PARTFLOW_PG_SCHEMA', 'analytics') }}"
+      threads: 4
+      sslmode: disable

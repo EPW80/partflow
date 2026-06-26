@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_suppliers
+    columns:
+      - name: supplier_id
+        data_tests: [not_null, unique]
+  - name: stg_skus
+    columns:
+      - name: sku_id
+        data_tests: [not_null, unique]
+  - name: stg_purchase_orders
+    columns:
+      - name: po_id
+        data_tests: [not_null, unique]
+  - name: stg_purchase_order_lines
+    columns:
+      - name: po_line_id
+        data_tests: [not_null, unique]
+  - name: stg_shipments
+    columns:
+      - name: shipment_id
+        data_tests: [not_null, unique]
+  - name: stg_shipment_lines
+    columns:
+      - name: shipment_line_id
+        data_tests: [not_null, unique]
+  - name: stg_quality_inspections
+    columns:
+      - name: inspection_id
+        data_tests: [not_null, unique]
+  - name: stg_material_flow_events
+    columns:
+      - name: event_id
+        data_tests: [not_null, unique]

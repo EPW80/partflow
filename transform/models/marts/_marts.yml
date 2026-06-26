@@ -1,0 +1,122 @@
+version: 2
+
+models:
+  - name: dim_supplier
+    description: Conformed supplier dimension.
+    columns:
+      - name: supplier_id
+        description: Primary key.
+        data_tests: [not_null, unique]
+
+  - name: dim_sku
+    description: Conformed SKU dimension with primary supplier.
+    columns:
+      - name: sku_id
+        description: Primary key.
+        data_tests: [not_null, unique]
+      - name: primary_supplier_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_id
+
+  - name: fct_purchase_order_lines
+    description: Atomic procurement fact, one row per PO line.
+    columns:
+      - name: po_line_id
+        data_tests: [not_null, unique]
+      - name: supplier_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_id
+      - name: sku_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sku')
+                field: sku_id
+      - name: line_fill_rate
+        description: received_qty / ordered_qty, capped at 1.
+
+  - name: fct_shipments
+    description: Atomic delivery fact, one row per shipment.
+    columns:
+      - name: shipment_id
+        data_tests: [not_null, unique]
+      - name: supplier_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_id
+      - name: is_on_time
+        description: received_date <= promised_date.
+
+  - name: fct_quality_inspections
+    description: Atomic quality fact, one row per inspection.
+    columns:
+      - name: inspection_id
+        data_tests: [not_null, unique]
+      - name: supplier_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_id
+      - name: sku_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_sku')
+                field: sku_id
+
+  - name: fct_inventory_daily
+    description: Atomic inventory fact, one row per SKU-day.
+    columns:
+      - name: inventory_day_key
+        description: Surrogate key (sku_id|snapshot_date).
+        data_tests: [not_null, unique]
+      - name: sku_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_sku')
+                field: sku_id
+
+  - name: kpi_supplier_scorecard
+    description: One row per supplier with all supplier KPIs + composite score.
+    columns:
+      - name: supplier_id
+        data_tests: [not_null, unique]
+      - name: otd_rate
+        description: On-time-delivery rate (0-1).
+      - name: composite_score
+        description: 0-100 weighted score (ADR-0002).
+
+  - name: kpi_supplier_monthly
+    description: Supplier KPI time series, one row per supplier-month.
+    columns:
+      - name: supplier_month_key
+        data_tests: [not_null, unique]
+      - name: supplier_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_supplier')
+                field: supplier_id
+
+  - name: kpi_sku_inventory
+    description: One row per SKU with turns, days-of-supply, stockout frequency.
+    columns:
+      - name: sku_id
+        data_tests: [not_null, unique]
+      - name: stockout_frequency
+        description: Share of SKU-days in stockout (0-1).

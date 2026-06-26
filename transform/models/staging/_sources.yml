@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw landing tables populated by the Phase 2 ingestion layer (pipelines/).
+      All columns are TEXT — staging casts them. Only this layer may reference raw_*.
+    schema: public
+    tables:
+      - name: raw_suppliers
+        loaded_at_field: _landed_at
+        freshness:
+          warn_after: { count: 24, period: hour }
+          error_after: { count: 72, period: hour }
+      - name: raw_skus
+      - name: raw_purchase_orders
+      - name: raw_purchase_order_lines
+      - name: raw_shipments
+      - name: raw_shipment_lines
+      - name: raw_quality_inspections
+      - name: raw_inventory_snapshots
+      - name: raw_material_flow_events
