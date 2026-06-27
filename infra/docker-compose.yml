@@ -7,19 +7,37 @@
 name: partflow
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.10.4
+  # Custom image: base Airflow + an isolated dbt venv (see infra/airflow/Dockerfile).
+  build:
+    context: ..
+    dockerfile: infra/airflow/Dockerfile
+  image: partflow/airflow:2.10.4
   environment: &airflow-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
-    # Warehouse connection for tasks (ingestion lands here; dbt builds here).
+    # Make the mounted ingestion/quality packages importable from DAGs.
+    PYTHONPATH: /opt/airflow
+    # Warehouse connection for ingestion tasks (lands raw_* here).
     PARTFLOW_DATABASE_URL: postgresql://partflow:partflow@postgres:5432/partflow
+    # dbt connection (consumed by transform/profiles.yml) + writable artifact paths.
+    PARTFLOW_PG_HOST: postgres
+    PARTFLOW_PG_PORT: "5432"
+    PARTFLOW_PG_USER: partflow
+    PARTFLOW_PG_PASSWORD: partflow
+    PARTFLOW_PG_DBNAME: partflow
+    PARTFLOW_PG_SCHEMA: analytics
+    DBT_PROFILES_DIR: /opt/airflow/dbt
+    DBT_TARGET_PATH: /tmp/dbt_target
+    DBT_LOG_PATH: /tmp/dbt_logs
   volumes:
     - ../pipelines/dags:/opt/airflow/dags
     - ../pipelines/ingestion:/opt/airflow/ingestion
     - ../pipelines/quality:/opt/airflow/quality
+    - ../data:/opt/airflow/data:ro
+    - ../transform:/opt/airflow/dbt:ro
     - airflow-logs:/opt/airflow/logs
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:

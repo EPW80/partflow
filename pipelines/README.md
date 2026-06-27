@@ -1,8 +1,38 @@
 # pipelines/ — Orchestration & Raw Landing
 
-Ingestion layer for PartFlow. Lands source data into `raw_*` tables in Postgres, idempotently.
-Phase 4 wraps these functions in Airflow DAGs with data-quality gates; this layer is the
-reusable core those DAGs call.
+Ingestion + orchestration layer for PartFlow. Lands source data into `raw_*` tables
+idempotently, then an Airflow DAG chains landing → `dbt build` → data-quality gates that fail
+loudly on bad data.
+
+## Orchestration
+
+`dags/partflow_ingest.py` runs the end-to-end chain on a daily schedule:
+
+```
+apply_raw_schema
+  └─► land_reference / land_procurement / land_inventory   (per-domain TaskGroups)
+        └─► build_marts (dbt build)
+              └─► gate_freshness ─► gate_row_counts ─► gate_null_rates ─► gate_mart_quality
+```
+
+Each gate is a task that raises `DataQualityError` on violation, failing the DAG — never
+log-and-continue (see [ADR-0003](../docs/adr/0003-data-quality-gate-strategy.md)). dbt runs in
+an isolated venv baked into the Airflow image (`infra/airflow/Dockerfile`).
+
+### Data-quality gates (`quality/`)
+
+- `checks.py` — primitives: `check_freshness`, `check_row_count`, `check_null_rate`
+- `specs.py` — declarative thresholds (adding a gate is data, not code)
+- `mart_expectations.py` — GE-style assertion suite over `kpi_supplier_scorecard`
+
+### Run the DAG locally
+
+```bash
+docker compose -f infra/docker-compose.yml up -d --build       # builds the dbt-enabled image
+docker compose -f infra/docker-compose.yml exec airflow-scheduler \
+    airflow dags test partflow_ingest                          # full chain end-to-end
+```
+Or trigger it from the Airflow UI at http://localhost:8080 (`airflow` / `airflow`).
 
 ## Three source patterns
 
